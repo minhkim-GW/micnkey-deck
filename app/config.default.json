@@ -1,0 +1,105 @@
+{
+  "language": "en",
+  "keySize": 80,
+  "columns": 3,
+  "opacity": 0.92,
+  "autostart": false,
+  "layerToggle": "Insert",
+  "keys": [
+    {
+      "label": "Claude",
+      "glyph": "E8BD",
+      "color": "#C8643C",
+      "action": "open",
+      "match": "claude",
+      "launch": "Claude",
+      "web": "https://claude.ai/new",
+      "numpad": "NumPad7",
+      "hotkey": "Ctrl+Alt+C"
+    },
+    {
+      "label": "ChatGPT",
+      "glyph": "E99A",
+      "color": "#10A37F",
+      "action": "open",
+      "match": "chatgpt",
+      "launch": "ChatGPT",
+      "web": "https://chatgpt.com/",
+      "numpad": "NumPad8",
+      "hotkey": "Ctrl+Alt+O"
+    },
+    {
+      "label": "Desktop",
+      "glyph": "E7F4",
+      "action": "desktop",
+      "numpad": "NumPad9"
+    },
+    {
+      "label": "Send",
+      "glyph": "E724",
+      "action": "keys",
+      "keys": "{ENTER}",
+      "numpad": "NumPad4"
+    },
+    {
+      "label": "Gemini",
+      "glyph": "E734",
+      "color": "#4285F4",
+      "action": "open",
+      "match": "gemini",
+      "launch": "Gemini",
+      "web": "https://gemini.google.com/app",
+      "numpad": "NumPad5"
+    },
+    {
+      "label": "Chrome",
+      "glyph": "E774",
+      "color": "#E8A317",
+      "action": "open",
+      "match": "chrome",
+      "launch": "chrome.exe",
+      "numpad": "NumPad6"
+    },
+    {
+      "label": "Documents",
+      "glyph": "E8B7",
+      "action": "folder",
+      "path": "%DOCUMENTS%",
+      "numpad": "NumPad1"
+    },
+    {
+      "label": "Downloads",
+      "glyph": "E896",
+      "action": "folder",
+      "path": "%DOWNLOADS%",
+      "numpad": "NumPad2"
+    },
+    {
+      "label": "Edge",
+      "glyph": "E774",
+      "color": "#0F7FD8",
+      "action": "open",
+      "match": "msedge",
+      "launch": "msedge.exe",
+      "numpad": "NumPad3"
+    },
+    {
+      "label": "MIC",
+      "glyph": "E720",
+      "wide": true,
+      "action": "mic",
+      "numpad": "NumPad0",
+      "hotkey": "Ctrl+Alt+M",
+      "apps": "claude|chatgpt|gemini",
+      "micProcess": "claude|openai|chatgpt|gemini|msedgewebview2|chrome|msedge",
+      "patterns": [
+        "^(stop|finish|end|done) dictation",
+        "^starting dictation",
+        "^dictate$",
+        "^(start )?dictation$",
+        "^(use )?microphone$",
+        "^mic$"
+      ]
+    }
+  ]
+}
