@@ -1,4 +1,4 @@
-# MicnKey Deck v1.3 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.3.1 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -443,7 +443,9 @@ function Find-Buttons($hwnd) {
 
 # Fast lookup: ask UI Automation for a button with one of these exact names. Much
 # faster than listing every button and reading each name across processes.
-$script:startNames = @('Dictate', 'Start dictation', 'Dictation', 'Use microphone', 'Voice input', 'Use voice mode')
+$script:startNames = @('Dictate', 'Start dictation', 'Dictation', 'Use microphone')
+# Never press these: they open a live voice conversation, not dictation into the chat box.
+$script:notDictation = 'voice mode|voice chat|voice conversation|start voice|talk to'
 $script:stopNames  = @('Stop dictation', 'Finish dictation', 'Done dictation', 'End dictation', 'Submit dictation')
 function Find-ButtonByName($hwnd, [string[]]$names) {
     $AE = [System.Windows.Automation.AutomationElement]
@@ -454,7 +456,7 @@ function Find-ButtonByName($hwnd, [string[]]$names) {
         $isBtn  = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
         $cond   = New-Object System.Windows.Automation.AndCondition($isBtn, $byName)
         foreach ($el in @($AE::FromHandle($hwnd).FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond))) {
-            try { if ($el.Current.IsEnabled -and -not $el.Current.IsOffscreen) { return $el } } catch {}
+            try { if ($el.Current.IsEnabled -and -not $el.Current.IsOffscreen -and "$($el.Current.Name)" -notmatch $script:notDictation) { return $el } } catch {}
         }
     } catch { Write-Log "fast find failed: $($_.Exception.Message)" }
     return $null
@@ -724,7 +726,7 @@ function Invoke-Mic($key) {
         try {
             $n = ("$($cached.Current.Name)" -replace '\s*\([^)]*\)\s*$', '')
             $stopName = ($n -match '^(stop|finish|end|done|starting) dictation')
-            if ($cached.Current.IsEnabled -and -not $cached.Current.IsOffscreen -and ($stopName -eq ($phase -eq 'stop'))) {
+            if ($cached.Current.IsEnabled -and -not $cached.Current.IsOffscreen -and ($stopName -eq ($phase -eq 'stop')) -and $n -notmatch $script:notDictation) {
                 $how = Invoke-Element $cached
                 Start-MicWatch $fg.Handle $n
                 Write-Log ("mic: '{0}' in {1} via {2} (cached, {3:N0} ms)" -f $n, $app, $how, ((Get-Date) - $t0).TotalMilliseconds)
@@ -754,7 +756,7 @@ function Invoke-Mic($key) {
             foreach ($b in $buttons) {
                 $name = ''
                 try { if (-not $b.Current.IsEnabled) { continue }; $name = ("$($b.Current.Name)" -replace '\s*\([^)]*\)\s*$', '') } catch { continue }
-                if ($name -and $name -match $pattern) {
+                if ($name -and $name -match $pattern -and $name -notmatch $script:notDictation) {
                     $isStop = ($name -match '^(stop|finish|end|done|starting) dictation')
                     if ($skipStop -and $isStop) { continue }
                     if ($name -notmatch '^starting') { Remember-Button $app $(if ($isStop) { 'stop' } else { 'start' }) $b $fg.Handle }
@@ -1502,7 +1504,7 @@ $form.Add_FormClosed({
     [void][PadNative]::UnregisterHotKey($form.Handle, $SHOW_PAD_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.3 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.3.1 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
 Write-Log "--- MicnKey Deck stopped ---"
