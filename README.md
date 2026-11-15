@@ -24,6 +24,11 @@
 </p>
 <p align="center"><sub>The deck floating over a Claude window: the key of the app you're in lights up in its own colour.</sub></p>
 
+<p align="center">
+  <img src="docs/demo.gif" width="720" alt="Demo: press MIC, speak, press Send, and the message is sent in ChatGPT">
+</p>
+<p align="center"><sub>MIC → speak → Send. The pad presses the app's own mic, then stops it and sends in one tap.</sub></p>
+
 ---
 
 ## Mic + Key = MicnKey
