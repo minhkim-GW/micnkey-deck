@@ -53,7 +53,7 @@ Claude, ChatGPT and Gemini have excellent built-in dictation, but on Windows you
 - **Send while talking** — press Send and it stops the mic, waits for the text, then sends.
 - **Works in any app language** — finds the mic button by name, by internal id or by its position; you can also *teach* it (right-click MIC).
 - **App keys that switch, not duplicate** — Claude / ChatGPT / Gemini / Chrome / Edge / folder keys jump to the window that is already open, and the key of the app you're in lights up.
-- **Number pad as AI keys** — press **Insert** and your number pad becomes the deck (stickers welcome); press Insert again to get numbers back.
+- **Number pad as AI keys** — press **Insert** (or double-click the pad's title strip) and your number pad becomes the deck; press Insert again to get numbers back. The small number on each key is its number-pad key, and the title strip reminds you how to switch, so nobody needs to read a manual (stickers welcome).
 - **Never steals focus** — clicking the pad keeps your cursor where it was.
 - **Always findable** — stays on top, comes back after Show desktop, and **Ctrl+Alt+P** calls it back from anywhere.
 - **Point-and-click settings** — add, remove and reorder keys, pick icons and colours, set shortcuts. English and Vietnamese.
