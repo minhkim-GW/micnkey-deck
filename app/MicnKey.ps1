@@ -1,4 +1,4 @@
-# MicnKey Deck v1.0 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.1 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -524,7 +524,16 @@ function Send-PadKeys($key) {
             $script:sendAfterDraft = $false
             return 'could not stop the mic'
         }
-        if ($script:micState -eq 'transcribing') { $script:sendAfterDraft = $true; return 'will send when the text is ready' }
+        if ($script:micState -eq 'transcribing') {
+            if ($script:sendAfterDraft) {
+                # second press: stop waiting and send whatever is in the box
+                Write-Log 'send: pressed again while transcribing - sending now'
+                Finish-Draft $true
+                return 'sent'
+            }
+            $script:sendAfterDraft = $true
+            return 'will send when the text is ready'
+        }
         if (-not (Test-FocusIsText)) {
             if (-not (Focus-Composer $fg.Handle)) {
                 Write-Log "keys: no chat box found in '$($fg.Title)' - sending anyway"
@@ -662,6 +671,12 @@ function Invoke-Mic($key) {
         return 'open Claude / ChatGPT / Gemini first'
     }
     $app = Get-AppName "$($fg.Process) $($fg.Title)"
+    if ($script:micState -eq 'transcribing') {
+        # MIC while the text is still coming in: stop waiting, leave the draft to edit
+        $script:sendAfterDraft = $false
+        Finish-Draft $true
+        return 'draft ready'
+    }
     $phase = if ($script:micState -in @('connecting','live','transcribing')) { 'stop' } else { 'start' }
     try {
         $buttons = Find-Buttons $fg.Handle
@@ -921,8 +936,13 @@ function Test-DictationUi($hwnd) {
 }
 
 $script:micTimer = New-Object System.Windows.Forms.Timer
-$script:micTimer.Interval = 400
+$script:micTimer.Interval = 300
+$script:tickBusy = $false
 $script:micTimer.Add_Tick({
+    # UI Automation calls and SendKeys pump messages, so this tick can be re-entered
+    # while it is still running; never run two at once.
+    if ($script:tickBusy) { return }
+    $script:tickBusy = $true
     try {
         $age = ((Get-Date) - $script:micStart).TotalSeconds
         switch ($script:micState) {
@@ -944,15 +964,24 @@ $script:micTimer.Add_Tick({
             }
             'transcribing' {
                 $t = ((Get-Date) - $script:trStart).TotalSeconds
-                if ($t -lt 0.8) { return }
-                if (Test-DictationUi $script:micHwnd) { if ($t -lt 15) { return } }
-                $txt = Get-ComposerText (Find-Composer $script:micHwnd)
-                if ($null -eq $txt) {
-                    if ($t -gt 1.5) { Finish-Draft $true }      # can't read the box: trust the app's buttons
-                } elseif ($txt -ne $script:trBefore) {
-                    if ($txt -eq $script:trLast) { Finish-Draft $true } else { $script:trLast = $txt }
-                } elseif ($t -gt 12) {
-                    Finish-Draft $false
+                if ($t -lt 0.6) { return }
+                # find the chat box once, then just read it (a full window scan every tick is slow)
+                if (-not $script:trComposer) { $script:trComposer = Find-Composer $script:micHwnd }
+                $txt = Get-ComposerText $script:trComposer
+                if ($null -eq $txt -and $script:trComposer -and $t -gt 2) {
+                    $script:trComposer = Find-Composer $script:micHwnd
+                    $txt = Get-ComposerText $script:trComposer
+                }
+                $now    = "$txt".Trim()
+                $before = "$($script:trBefore)".Trim()
+                if ($null -ne $txt -and $now -ne '' -and $now -ne $before) {
+                    # new text arrived: done once it stops changing for one tick
+                    if ($now -eq $script:trLast) { Finish-Draft $true } else { $script:trLast = $now }
+                } elseif ($null -eq $txt) {
+                    if ($t -gt 2.5) { Finish-Draft $true }      # can't read the box: trust the app
+                } elseif ($t -gt 8) {
+                    # nothing new after 8 s: send anyway if asked to, otherwise give up quietly
+                    Finish-Draft ([bool]$script:sendAfterDraft)
                 }
             }
             'ready' {
@@ -961,16 +990,21 @@ $script:micTimer.Add_Tick({
             default { $script:micTimer.Stop() }
         }
     } catch { Write-Log "mic watch error: $($_.Exception.Message)" }
+    finally { $script:tickBusy = $false }
 })
 
 function Start-Transcribing {
     $script:trStart  = Get-Date
     $script:trLast   = $null
+    $script:trComposer = $null
     Set-MicState 'transcribing'
     $script:micTimer.Start()
 }
 
 function Finish-Draft([bool]$gotText) {
+    if ($script:micState -ne 'transcribing') { return }   # already finished
+    $script:micTimer.Stop()
+    $script:micState = 'finishing'
     if ($gotText -and $script:sendAfterDraft) {
         $script:sendAfterDraft = $false
         [void](Focus-Composer $script:micHwnd)
@@ -986,6 +1020,7 @@ function Finish-Draft([bool]$gotText) {
         [void](Focus-Composer $script:micHwnd)
         $script:readyAt = Get-Date
         Set-MicState 'ready'
+        $script:micTimer.Start()
         $script:title.Text = '  draft ready'
         Write-Log ("mic: draft ready after {0:N1}s" -f ((Get-Date) - $script:trStart).TotalSeconds)
     } else {
@@ -1321,7 +1356,7 @@ $form.Add_FormClosed({
     [void][PadNative]::UnregisterHotKey($form.Handle, $LAYER_TOGGLE_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.0 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.1 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
 $mutex.ReleaseMutex()

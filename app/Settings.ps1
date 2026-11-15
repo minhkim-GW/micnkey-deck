@@ -1,4 +1,4 @@
-﻿# MicnKey Deck v1.0 - Settings window (point-and-click, no code). English by default, Vietnamese optional.
+﻿# MicnKey Deck v1.1 - Settings window (point-and-click, no code). English by default, Vietnamese optional.
 # Saved as UTF-8 with BOM so Windows PowerShell 5.1 shows Vietnamese text correctly.
 
 $ErrorActionPreference = 'Stop'
