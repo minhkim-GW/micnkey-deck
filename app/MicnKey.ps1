@@ -1,4 +1,4 @@
-# MicnKey Deck v1.3.1 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.3.2 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -1177,8 +1177,16 @@ function New-ChromeButton([string]$glyphHex, [string]$tip) {
     $form.Controls.Add($l)
     $l
 }
-$close = New-ChromeButton 'E8BB' 'Close MicnKey Deck'
+$close = New-ChromeButton 'E8BB' 'Quit MicnKey Deck'
 $close.Add_Click({ $form.Close() })
+# hide (minimise) - the pad keeps running; Ctrl+Alt+P or any of its hotkeys bring it back
+$script:userHidden = $false
+$hide = New-ChromeButton 'E921' 'Hide the pad (press Ctrl+Alt+P to bring it back)'
+$hide.Add_Click({
+    $script:userHidden = $true
+    $form.Hide()
+    Write-Log "pad: hidden by user ($($script:showKeyUsed) shows it again)"
+})
 $gear = New-ChromeButton 'E713' 'Settings - add, remove and change keys'
 $gear.Add_Click({
     $settings = Join-Path $here 'Settings.ps1'
@@ -1273,9 +1281,11 @@ $gear.ForeColor  = [System.Drawing.Color]::White
 $gear.Add_MouseLeave({ param($s, $e) $s.ForeColor = [System.Drawing.Color]::White })
 $gear.Add_MouseEnter({ param($s, $e) $s.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 212) })
 $gear.Add_MouseLeave({ param($s, $e) $s.BackColor = [System.Drawing.Color]::FromArgb(56, 56, 64) })
-$title.Size      = New-Object System.Drawing.Size(($formW - $top - $gearW - 4), $top)
+$title.Size      = New-Object System.Drawing.Size(($formW - 2 * $top - $gearW - 4), $top)
 $gear.Size       = New-Object System.Drawing.Size($gearW, ($top - 6))
-$gear.Location   = New-Object System.Drawing.Point(($formW - $top - $gearW - 2), 3)
+$gear.Location   = New-Object System.Drawing.Point(($formW - 2 * $top - $gearW - 2), 3)
+$hide.Size       = New-Object System.Drawing.Size($top, $top)
+$hide.Location   = New-Object System.Drawing.Point(($formW - 2 * $top), 0)
 $close.Size      = New-Object System.Drawing.Size($top, $top)
 $close.Location  = New-Object System.Drawing.Point(($formW - $top), 0)
 
@@ -1303,6 +1313,8 @@ try {
 # off screen. A watchdog puts it back on top every 2 s, and a "show pad" hotkey
 # (Ctrl+Alt+P by default) brings it back to the bottom-right corner.
 function Show-Pad([bool]$fromHotkey) {
+    if ($fromHotkey) { $script:userHidden = $false }
+    elseif ($script:userHidden) { return }      # the user hid it on purpose: leave it hidden
     try {
         $h = $form.Handle
         $r = New-Object System.Drawing.Rectangle($form.Location, $form.Size)
@@ -1504,7 +1516,7 @@ $form.Add_FormClosed({
     [void][PadNative]::UnregisterHotKey($form.Handle, $SHOW_PAD_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.3.1 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.3.2 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
 Write-Log "--- MicnKey Deck stopped ---"

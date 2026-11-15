@@ -36,4 +36,4 @@ Bấm **bánh răng** trên pad → chọn phím → đổi chữ, biểu tượ
 Double-click **Uninstall.cmd** trong file zip.
 
 ## Không thấy pad đâu?
-Bấm **Ctrl+Alt+P**, pad sẽ hiện lại trên cùng (và về góc dưới bên phải nếu đang nằm ngoài màn hình). Nếu không có gì xảy ra thì pad đã bị tắt: mở lại **MicnKey Deck** từ Start menu hoặc Desktop.
+Bấm **Ctrl+Alt+P**, pad sẽ hiện lại trên cùng (và về góc dưới bên phải nếu đang nằm ngoài màn hình). Góc trên bên phải: nút **–** để ẩn pad (pad vẫn chạy), nút **×** để tắt hẳn. Nếu bấm Ctrl+Alt+P không có gì xảy ra thì pad đã bị tắt bằng ×: mở lại **MicnKey Deck** từ Start menu hoặc Desktop.
