@@ -1,14 +1,16 @@
-**MicnKey Deck v1.2** – the pad is always findable.
+**MicnKey Deck v1.3** – faster MIC, self-explaining number pad.
 
-### New
-- **Ctrl+Alt+P** brings the pad back from anywhere: on top, and back to the bottom-right corner if it was off screen. (If another app already uses it, the pad picks Ctrl+Alt+Space; change it with `showHotkey` in config.json.)
-- The pad puts itself back on top every 2 s, so Show desktop or a full-screen app can't hide it for long.
-- An error inside a key or timer no longer closes the pad: it's logged to `micnkey.log` and the pad keeps running.
+### Faster
+- MIC finds the app's dictation button by its exact name instead of reading every button: about 0.7–1.5 s instead of 3–4.5 s. Send uses the same fast lookup to stop the mic.
+- The MIC key changes to **Starting…** the moment you press it, so you know it heard you.
+- What's left is the AI app opening its own microphone (about 1 s in ChatGPT, 3–12 s in Claude). The key turns red **SPEAK NOW** when it's really listening.
 
-### Also in this release (from v1.1)
-- Send while talking stops the mic, waits for the text and sends once – no more hanging on "Transcribing…".
+### Easier number pad
+- The title strip shows **"Insert = number-pad keys"**, and when they're on, **"AI keys ON (Insert = off)"**.
+- Double-click the title strip to switch, same as pressing Insert.
+- Status messages fade back to that hint after a few seconds.
 
 ### Install / update
-1. Download **MicnKey-Deck-v1.2.zip** below.
+1. Download **MicnKey-Deck-v1.3.zip** below.
 2. Right-click the zip → **Properties** → tick **Unblock** → OK → **Extract All**.
 3. Double-click **Install.cmd**. Updating keeps your keys and settings.

@@ -1,4 +1,4 @@
-# MicnKey Deck v1.2 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.3 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -441,6 +441,25 @@ function Find-Buttons($hwnd) {
     $all
 }
 
+# Fast lookup: ask UI Automation for a button with one of these exact names. Much
+# faster than listing every button and reading each name across processes.
+$script:startNames = @('Dictate', 'Start dictation', 'Dictation', 'Use microphone', 'Voice input', 'Use voice mode')
+$script:stopNames  = @('Stop dictation', 'Finish dictation', 'Done dictation', 'End dictation', 'Submit dictation')
+function Find-ButtonByName($hwnd, [string[]]$names) {
+    $AE = [System.Windows.Automation.AutomationElement]
+    try {
+        Enable-WebAccessibility $hwnd
+        $nameConds = @($names | ForEach-Object { New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, $_) })
+        $byName = if ($nameConds.Count -gt 1) { New-Object System.Windows.Automation.OrCondition(,[System.Windows.Automation.Condition[]]$nameConds) } else { $nameConds[0] }
+        $isBtn  = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+        $cond   = New-Object System.Windows.Automation.AndCondition($isBtn, $byName)
+        foreach ($el in @($AE::FromHandle($hwnd).FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond))) {
+            try { if ($el.Current.IsEnabled -and -not $el.Current.IsOffscreen) { return $el } } catch {}
+        }
+    } catch { Write-Log "fast find failed: $($_.Exception.Message)" }
+    return $null
+}
+
 function Invoke-Element($el) {
     $p = $null
     if ($el.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) {
@@ -552,6 +571,14 @@ function Send-PadKeys($key) {
 }
 
 function Stop-Dictation($fg) {
+    $quick = Find-ButtonByName $fg.Handle $script:stopNames
+    if ($quick) {
+        $name = "$($quick.Current.Name)"
+        $how = Invoke-Element $quick
+        Write-Log "send: pressed '$name' first ($how)"
+        Start-MicWatch $fg.Handle $name
+        return $true
+    }
     try {
         foreach ($b in (Find-Buttons $fg.Handle)) {
             try {
@@ -683,6 +710,39 @@ function Invoke-Mic($key) {
         return 'draft ready'
     }
     $phase = if ($script:micState -in @('connecting','live','transcribing')) { 'stop' } else { 'start' }
+    $t0 = Get-Date
+    if ($phase -eq 'start' -and $script:micBtn) {
+        # instant feedback while we look for the app's button
+        $script:micBtn.SetState('Starting...', [System.Drawing.Color]::FromArgb(214, 140, 0), $false)
+        $script:micBtn.Refresh()
+    }
+
+    # 0. fast path: the same button we pressed last time in this window
+    $ck = "$($fg.Handle)|$phase"
+    $cached = $script:btnCache[$ck]
+    if ($cached) {
+        try {
+            $n = ("$($cached.Current.Name)" -replace '\s*\([^)]*\)\s*$', '')
+            $stopName = ($n -match '^(stop|finish|end|done|starting) dictation')
+            if ($cached.Current.IsEnabled -and -not $cached.Current.IsOffscreen -and ($stopName -eq ($phase -eq 'stop'))) {
+                $how = Invoke-Element $cached
+                Start-MicWatch $fg.Handle $n
+                Write-Log ("mic: '{0}' in {1} via {2} (cached, {3:N0} ms)" -f $n, $app, $how, ((Get-Date) - $t0).TotalMilliseconds)
+                return "$app mic"
+            }
+        } catch {}
+        $script:btnCache.Remove($ck)
+    }
+    # 0b. fast path: exact English button names
+    $quick = Find-ButtonByName $fg.Handle $(if ($phase -eq 'start') { $script:startNames } else { $script:stopNames })
+    if ($quick) {
+        $n = "$($quick.Current.Name)"
+        $script:btnCache[$ck] = $quick
+        $how = Invoke-Element $quick
+        Start-MicWatch $fg.Handle $n
+        Write-Log ("mic: '{0}' in {1} via {2} (by name, {3:N0} ms)" -f $n, $app, $how, ((Get-Date) - $t0).TotalMilliseconds)
+        return "$app mic"
+    }
     try {
         $buttons = Find-Buttons $fg.Handle
         if ($buttons.Count -le 4) { Start-Sleep -Milliseconds 900; $buttons = Find-Buttons $fg.Handle }
@@ -698,9 +758,10 @@ function Invoke-Mic($key) {
                     $isStop = ($name -match '^(stop|finish|end|done|starting) dictation')
                     if ($skipStop -and $isStop) { continue }
                     if ($name -notmatch '^starting') { Remember-Button $app $(if ($isStop) { 'stop' } else { 'start' }) $b $fg.Handle }
+                    if ($name -notmatch '^starting') { $script:btnCache["$($fg.Handle)|$(if ($isStop) { 'stop' } else { 'start' })"] = $b }
                     $how = Invoke-Element $b
                     Start-MicWatch $fg.Handle $name
-                    Write-Log "mic: '$name' in $app via $how"
+                    Write-Log ("mic: '{0}' in {1} via {2} ({3:N0} ms)" -f $name, $app, $how, ((Get-Date) - $t0).TotalMilliseconds)
                     return "$app mic"
                 }
             }
@@ -874,7 +935,7 @@ function Restart-Pad {
 function Invoke-KeyAction($key) {
     try {
         switch ($key.action) {
-            'mic'  { $msg = Invoke-Mic $key }
+            'mic'  { $msg = Invoke-Mic $key; if ($script:micState -eq 'idle') { Set-MicState 'idle' } }
             'open' { $msg = Open-App $key }
             'folder' { $msg = Open-Target $key }
             'desktop' { (New-Object -ComObject Shell.Application).ToggleDesktop(); Write-Log 'desktop: toggled'; $msg = $key.label }
@@ -898,6 +959,7 @@ function Invoke-KeyAction($key) {
 # ---- mic state: idle -> connecting -> live -> idle ------------------------
 $script:micBtn   = $null
 $script:micKey   = $null
+$script:btnCache = @{}
 $script:micHwnd  = [IntPtr]::Zero
 $script:micState = 'idle'
 $script:sendAfterDraft = $false
@@ -1361,17 +1423,49 @@ function Set-Layer([bool]$on) {
             try { if (Register-Spec $i "$($k.numpad)") { $script:layerIds[$i] = $k } } catch { Write-Log "bad numpad key '$($k.numpad)'" }
             $i++
         }
-        $warn = if (-not [System.Windows.Forms.Control]::IsKeyLocked([System.Windows.Forms.Keys]::NumLock)) { ' - turn NumLock on' } else { '' }
-        $script:title.Text = "  AI keys ON ($layerToggle)$warn"
+        $numOff = -not [System.Windows.Forms.Control]::IsKeyLocked([System.Windows.Forms.Keys]::NumLock)
+        $script:title.Text = if ($numOff) { '  AI keys ON - turn NumLock on' } else { '  AI keys ON: number pad' }
         $script:title.ForeColor = [System.Drawing.Color]::FromArgb(120, 230, 140)
         Write-Log "AI keys ON ($($script:layerIds.Count) number-pad keys)"
     } else {
-        $script:title.Text = '  MicnKey Deck'
-        $script:title.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 160)
+        $script:title.Text = '  AI keys OFF'
         Write-Log 'AI keys OFF'
     }
     foreach ($b in $script:allBtns) { $b.SetBadgeLit($on) }
 }
+
+# ---- a title strip that teaches itself ------------------------------------
+# When nothing else is being said, the strip shows how to turn on the number-pad
+# keys (or that they are on). Status messages fade back to this after a few seconds.
+function Get-IdleTitle {
+    if ($layerToggle -and $layerToggle -ne 'off') {
+        if ($script:layerOn) { return "  AI keys ON  ($layerToggle = off)" }
+        return "  $layerToggle = number-pad keys"
+    }
+    return '  MicnKey Deck'
+}
+function Set-IdleTitle {
+    $script:settingIdle = $true
+    $script:title.Text = Get-IdleTitle
+    $script:title.ForeColor = if ($script:layerOn) { [System.Drawing.Color]::FromArgb(120, 230, 140) } else { [System.Drawing.Color]::FromArgb(150, 150, 160) }
+    $script:settingIdle = $false
+}
+$script:titleTimer = New-Object System.Windows.Forms.Timer
+$script:titleTimer.Interval = 6000
+$script:titleTimer.Add_Tick({
+    $script:titleTimer.Stop()
+    # keep live mic messages; everything else goes back to the hint
+    if ($script:micState -in @('idle', 'ready')) { Set-IdleTitle } else { $script:titleTimer.Start() }
+})
+$script:title.Add_TextChanged({
+    if (-not $script:settingIdle) { $script:titleTimer.Stop(); $script:titleTimer.Start() }
+})
+if ($layerToggle -and $layerToggle -ne 'off') {
+    $script:title.Add_DoubleClick({ Set-Layer (-not $script:layerOn) })
+    (New-Object System.Windows.Forms.ToolTip).SetToolTip($script:title,
+        "Press $layerToggle (or double-click here) to turn your number pad into these keys.`nThe small number on each key is its number-pad key. Drag here to move the pad.")
+}
+$form.Add_Shown({ Set-IdleTitle })
 
 # ---- physical hotkeys -----------------------------------------------------
 $form.add_HotKey([Action[int]]{
@@ -1408,7 +1502,7 @@ $form.Add_FormClosed({
     [void][PadNative]::UnregisterHotKey($form.Handle, $SHOW_PAD_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.2 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.3 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
 Write-Log "--- MicnKey Deck stopped ---"
