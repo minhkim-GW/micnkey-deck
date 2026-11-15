@@ -1,27 +1,35 @@
-name: Release
+name: Release zip
 
+# Publish a release on GitHub (tag vX.Y); this workflow builds
+# MicnKey-Deck-vX.Y.zip from that tag and attaches it to the release.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag, e.g. v1.0'
+        required: true
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  zip:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - name: Build zip
         run: |
-          NAME="MicnKey-Deck-${GITHUB_REF_NAME}"
+          NAME="MicnKey-Deck-${TAG}"
           mkdir -p "build/$NAME"
           rsync -a --exclude .git --exclude .github --exclude build ./ "build/$NAME/"
           cd build && zip -qr "../$NAME.zip" "$NAME"
-      - name: Publish release
+      - name: Attach to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" "MicnKey-Deck-${GITHUB_REF_NAME}.zip" \
-            --title "MicnKey Deck ${GITHUB_REF_NAME}" \
-            --notes-file .github/release-notes.md
+        run: gh release upload "$TAG" "MicnKey-Deck-${TAG}.zip" --clobber
