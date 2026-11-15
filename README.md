@@ -55,7 +55,7 @@ Claude, ChatGPT and Gemini have excellent built-in dictation, but on Windows you
 - **App keys that switch, not duplicate** — Claude / ChatGPT / Gemini / Chrome / Edge / folder keys jump to the window that is already open, and the key of the app you're in lights up.
 - **Number pad as AI keys** — press **Insert** (or double-click the pad's title strip) and your number pad becomes the deck; press Insert again to get numbers back. The small number on each key is its number-pad key, and the title strip reminds you how to switch, so nobody needs to read a manual (stickers welcome).
 - **Never steals focus** — clicking the pad keeps your cursor where it was.
-- **Always findable** — stays on top, comes back after Show desktop, and **Ctrl+Alt+P** calls it back from anywhere.
+- **Always findable** — stays on top, comes back after Show desktop, and **Ctrl+Alt+P** calls it back from anywhere. Top-right: **–** hides the pad (it keeps running), **×** quits it.
 - **Point-and-click settings** — add, remove and reorder keys, pick icons and colours, set shortcuts. English and Vietnamese.
 - **Private** — runs locally, no network calls, no telemetry.
 
@@ -117,7 +117,7 @@ Click **Save** — the pad reloads in about a second. Power users can edit `conf
 | Problem | Fix |
 |---|---|
 | Nothing happens after Install | Unblock the zip (step 2) and run `Install.cmd` again. Work/school PCs may block PowerShell scripts entirely. |
-| I can't see the pad any more | Press **Ctrl+Alt+P** – it comes back on top (and to the bottom-right corner if it was off screen). If nothing happens, the pad was closed: open **MicnKey Deck** from the Start menu or desktop. If that hotkey is used by another app, the pad picks Ctrl+Alt+Space instead (see `micnkey.log`). |
+| I can't see the pad any more | Press **Ctrl+Alt+P** – it comes back on top (and to the bottom-right corner if it was off screen). If nothing happens, the pad was quit with **×** (not hidden with **–**): open **MicnKey Deck** from the Start menu or desktop. If that hotkey is used by another app, the pad picks Ctrl+Alt+Space instead (see `micnkey.log`). |
 | The pad takes a while to appear the first time | Normal: the first start can take 30–60 seconds while Windows/antivirus scans the new files. Later starts are faster. |
 | Need to see errors | Run `Debug-MicnKey.cmd` in the install folder (`%LOCALAPPDATA%\MicnKey Deck`) – it keeps a console open. The log is `micnkey.log` in the same folder. |
 | Antivirus warning | The app simulates key presses in other apps, which some antivirus tools flag. Review the scripts and allow the folder `%LOCALAPPDATA%\MicnKey Deck`. |
