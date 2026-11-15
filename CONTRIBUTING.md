@@ -44,6 +44,7 @@ Every visible string in `Settings.ps1` is written as `(T 'English' 'Vietnamese')
   "opacity": 0.92,           // 0.5 - 1.0
   "autostart": false,        // start with Windows
   "layerToggle": "Insert",   // key that turns the number pad into pad keys; "off" to disable
+  "showHotkey": "Ctrl+Alt+P", // brings the pad back on screen; "off" to disable
   "keys": [
     {
       "label": "Documents",
