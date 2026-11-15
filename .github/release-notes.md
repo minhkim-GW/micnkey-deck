@@ -1,13 +1,14 @@
-**MicnKey Deck v1.1** – Send fix.
+**MicnKey Deck v1.2** – the pad is always findable.
 
-### Fixed
-- **Send while talking** no longer hangs on "Transcribing…". It now stops the mic, waits for the text (usually 1–3 s) and sends **once**. Before, the pad could freeze for up to a minute and press Enter several times.
-- Pressing **Send again** while it's still transcribing sends right away.
-- Pressing **MIC** while it's transcribing stops waiting and leaves the text in the box to edit.
+### New
+- **Ctrl+Alt+P** brings the pad back from anywhere: on top, and back to the bottom-right corner if it was off screen. (If another app already uses it, the pad picks Ctrl+Alt+Space; change it with `showHotkey` in config.json.)
+- The pad puts itself back on top every 2 s, so Show desktop or a full-screen app can't hide it for long.
+- An error inside a key or timer no longer closes the pad: it's logged to `micnkey.log` and the pad keeps running.
+
+### Also in this release (from v1.1)
+- Send while talking stops the mic, waits for the text and sends once – no more hanging on "Transcribing…".
 
 ### Install / update
-1. Download **MicnKey-Deck-v1.1.zip** below.
+1. Download **MicnKey-Deck-v1.2.zip** below.
 2. Right-click the zip → **Properties** → tick **Unblock** → OK → **Extract All**.
-3. Double-click **Install.cmd**. Updating keeps your keys and settings. The first start can take 30–60 s while Windows scans the new files.
-
-Tested on Windows 11 with the ChatGPT desktop app (MIC → speak → Send). Please open an issue if something misbehaves.
+3. Double-click **Install.cmd**. Updating keeps your keys and settings.

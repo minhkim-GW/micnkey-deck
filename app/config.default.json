@@ -5,6 +5,7 @@
   "opacity": 0.92,
   "autostart": false,
   "layerToggle": "Insert",
+  "showHotkey": "Ctrl+Alt+P",
   "keys": [
     {
       "label": "Claude",

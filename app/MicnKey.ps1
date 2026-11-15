@@ -1,4 +1,4 @@
-# MicnKey Deck v1.1 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.2 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -36,6 +36,10 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName WindowsBase
+# An error inside a click or timer handler must not close the pad: log it and carry on.
+try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}
+[System.Windows.Forms.Application]::add_ThreadException({ param($s, $e) try { Write-Log "error (pad kept running): $($e.Exception.Message)" } catch {} })
+[System.AppDomain]::CurrentDomain.add_UnhandledException({ param($s, $e) try { Write-Log "fatal error: $($e.ExceptionObject)" } catch {} })
 
 # ---- native helpers + a window that never steals focus --------------------
 Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @'
@@ -199,6 +203,7 @@ public static class PadNative {
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
     [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
@@ -1229,6 +1234,39 @@ try {
         }
     }
 } catch {}
+# ---- keep the pad findable ---------------------------------------------------
+# Show-desktop, full-screen apps or a screen change can hide the pad or push it
+# off screen. A watchdog puts it back on top every 2 s, and a "show pad" hotkey
+# (Ctrl+Alt+P by default) brings it back to the bottom-right corner.
+function Show-Pad([bool]$fromHotkey) {
+    try {
+        $h = $form.Handle
+        $r = New-Object System.Drawing.Rectangle($form.Location, $form.Size)
+        $onScreen = $false
+        foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
+            $i = [System.Drawing.Rectangle]::Intersect($scr.WorkingArea, $r)
+            if ($i.Width -ge 80 -and $i.Height -ge 80) { $onScreen = $true }
+        }
+        if (-not $onScreen) {
+            $a = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+            $form.Location = New-Object System.Drawing.Point(($a.Right - $form.Width - 24), ($a.Bottom - $form.Height - 24))
+            Write-Log 'pad: was off screen - moved back'
+        }
+        if (-not $form.Visible -or [PadNative]::IsIconic($h)) {
+            [void][PadNative]::ShowWindow($h, 4)        # SW_SHOWNOACTIVATE
+            $form.Visible = $true
+            Write-Log 'pad: was hidden - shown again'
+        }
+        # HWND_TOPMOST, no move/size/activate, show
+        [void][PadNative]::SetWindowPos($h, [IntPtr](-1), 0, 0, 0, 0, 0x0001 -bor 0x0002 -bor 0x0010 -bor 0x0040)
+        if ($fromHotkey) { $script:title.Text = '  here I am' }
+    } catch {}
+}
+$script:keepTimer = New-Object System.Windows.Forms.Timer
+$script:keepTimer.Interval = 2000
+$script:keepTimer.Add_Tick({ Show-Pad $false })
+$form.Add_Shown({ $script:keepTimer.Start() })
+
 $form.Add_FormClosing({ try { Set-Content -Path $posFile -Value "$($form.Location.X),$($form.Location.Y)" } catch {} })
 $form.Add_HandleCreated({ try { [PadNative]::RoundCorners($form.Handle) } catch {} })
 
@@ -1291,6 +1329,7 @@ $script:layerOn   = $false
 $script:layerIds  = @{}
 $layerToggle = "$(Get-Cfg 'layerToggle' 'Insert')"
 $LAYER_TOGGLE_ID = 900
+$SHOW_PAD_ID     = 901
 
 function Register-Spec([int]$id, [string]$spec) {
     $mods = 0; $vk = 0
@@ -1338,6 +1377,7 @@ function Set-Layer([bool]$on) {
 $form.add_HotKey([Action[int]]{
     param($id)
     if ($id -eq $LAYER_TOGGLE_ID) { Set-Layer (-not $script:layerOn); return }
+    if ($id -eq $SHOW_PAD_ID) { Show-Pad $true; return }
     if ($script:layerIds.ContainsKey($id)) { Invoke-KeyAction $script:layerIds[$id]; return }
     if ($hotkeys.ContainsKey($id)) { Invoke-KeyAction $hotkeys[$id] }
 })
@@ -1345,6 +1385,17 @@ $form.Add_Shown({
     foreach ($id in $hotkeys.Keys) {
         $spec = "$($hotkeys[$id].hotkey)"
         try { [void](Register-Spec $id $spec) } catch { Write-Log "bad hotkey '$spec': $($_.Exception.Message)" }
+    }
+    # "show pad" hotkey: the one in config.json, else the first free one of these
+    $showKey = "$(Get-Cfg 'showHotkey' '')"
+    if ($showKey -ne 'off') {
+        $tries = @(); if ($showKey) { $tries += $showKey }
+        $tries += @('Ctrl+Alt+P', 'Ctrl+Alt+Space', 'Ctrl+Shift+Alt+P')
+        foreach ($t in $tries) {
+            $ok = $false
+            try { $ok = Register-Spec $SHOW_PAD_ID $t } catch {}
+            if ($ok) { $script:showKeyUsed = $t; Write-Log "show-pad hotkey: $t"; break }
+        }
     }
     if ($layerToggle -and $layerToggle -ne 'off') {
         try { [void](Register-Spec $LAYER_TOGGLE_ID $layerToggle) } catch { Write-Log "bad AI-mode toggle '$layerToggle'" }
@@ -1354,9 +1405,11 @@ $form.Add_FormClosed({
     foreach ($id in $hotkeys.Keys) { [void][PadNative]::UnregisterHotKey($form.Handle, $id) }
     foreach ($id in @($script:layerIds.Keys)) { [void][PadNative]::UnregisterHotKey($form.Handle, $id) }
     [void][PadNative]::UnregisterHotKey($form.Handle, $LAYER_TOGGLE_ID)
+    [void][PadNative]::UnregisterHotKey($form.Handle, $SHOW_PAD_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.1 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.2 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
+Write-Log "--- MicnKey Deck stopped ---"
 $mutex.ReleaseMutex()
