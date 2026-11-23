@@ -1,9 +1,9 @@
-**MicnKey Deck v1.3.2** – Hide and Quit buttons.
+**MicnKey Deck v1.3.3** – no more accidental "cancel" while the mic is starting.
 
-- New **–** button next to **×**, like other apps. **–** hides the pad but keeps it running, so **Ctrl+Alt+P** (and your MIC / number-pad hotkeys) still work. **×** quits.
-- A pad you hid stays hidden until you press Ctrl+Alt+P; the "keep on top" watchdog no longer pops it back up.
+- For the first 4 seconds after you press **MIC**, while the AI app is still opening its microphone, extra presses of **MIC** or **Send** are ignored (the title strip says "wait – mic is starting"). Before, a second press could hit the app's own *"Starting dictation; click to cancel"* button and throw away your turn.
+- After those 4 seconds, MIC and Send work as before, so you can still cancel a mic that never starts.
 
 ### Install / update
-1. Download **MicnKey-Deck-v1.3.2.zip** below.
+1. Download **MicnKey-Deck-v1.3.3.zip** below.
 2. Right-click the zip → **Properties** → tick **Unblock** → OK → **Extract All**.
 3. Double-click **Install.cmd**. Updating keeps your keys and settings.

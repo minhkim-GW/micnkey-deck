@@ -1,4 +1,4 @@
-# MicnKey Deck v1.3.2 - a floating mic + AI keypad for Windows
+# MicnKey Deck v1.3.3 - a floating mic + AI keypad for Windows
 # https://github.com/  (MIT License)
 # Runs on built-in Windows PowerShell 5.1. No install needed.
 # Start it with Start-MicnKey.cmd. Keys are defined in config.json.
@@ -544,6 +544,10 @@ function Send-PadKeys($key) {
     $isEnter = ("$($key.keys)" -match '\{ENTER\}')
     if ($isAi -and $isEnter -and "$($key.keys)" -notmatch '^\+') {
         # Send while dictating = stop the mic, wait for the text, then send it.
+        if (Test-MicStarting) {
+            Write-Log 'send: ignored while the mic is starting'
+            return 'wait for SPEAK NOW'
+        }
         if ($script:micState -in @('connecting','live')) {
             $script:sendAfterDraft = $true
             if (Stop-Dictation $fg) { return 'stopping - will send' }
@@ -705,6 +709,12 @@ function Invoke-Mic($key) {
         return 'open Claude / ChatGPT / Gemini first'
     }
     $app = Get-AppName "$($fg.Process) $($fg.Title)"
+    if (Test-MicStarting) {
+        # A second press while the app is still opening its mic would hit its
+        # "cancel" button and throw away your turn. Ignore it for a few seconds.
+        Write-Log 'mic: extra press ignored while the mic is starting'
+        return 'wait - mic is starting'
+    }
     if ($script:micState -eq 'transcribing') {
         # MIC while the text is still coming in: stop waiting, leave the draft to edit
         $script:sendAfterDraft = $false
@@ -1097,6 +1107,13 @@ function Finish-Draft([bool]$gotText) {
         $script:title.Text = '  no text came back'
         Write-Log 'mic: transcription produced no text'
     }
+}
+
+# True for the first few seconds after MIC was pressed, before the app is listening.
+$script:startGuardSec = 4
+function Test-MicStarting {
+    if ($script:micState -ne 'connecting' -or -not $script:micStart) { return $false }
+    return (((Get-Date) - $script:micStart).TotalSeconds -lt $script:startGuardSec)
 }
 
 function Start-MicWatch($hwnd, [string]$clicked) {
@@ -1516,7 +1533,7 @@ $form.Add_FormClosed({
     [void][PadNative]::UnregisterHotKey($form.Handle, $SHOW_PAD_ID)
 })
 
-Write-Log "--- MicnKey Deck v1.3.2 started (scale $scale, icons: $iconFamily) ---"
+Write-Log "--- MicnKey Deck v1.3.3 started (scale $scale, icons: $iconFamily) ---"
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)
 Write-Log "--- MicnKey Deck stopped ---"
